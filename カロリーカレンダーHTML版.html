@@ -1,0 +1,1187 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="カロリー" />
+    <meta name="theme-color" content="#f2f4f5" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#10161c" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="data:," />
+    <title>カロリーカレンダー</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f2f4f5;
+        --surface: #ffffff;
+        --text: #16222e;
+        --dim: #5b6b78;
+        --border: #dde3e7;
+        --accent: #e0521f;
+        --accent-soft: #fdeee7;
+        --ink: #16222e;
+        --ink-text: #ffffff;
+        --danger: #b3261e;
+        --sat: #3a6ea8;
+        --radius: 12px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #10161c;
+          --surface: #1a232d;
+          --text: #eef3f6;
+          --dim: #93a3af;
+          --border: #2b3742;
+          --accent: #ff7a45;
+          --accent-soft: #3a241a;
+          --ink: #eef3f6;
+          --ink-text: #10161c;
+          --danger: #ff8a80;
+          --sat: #7aa7d9;
+        }
+      }
+      * { box-sizing: border-box; }
+      [hidden] { display: none !important; }
+      html { -webkit-text-size-adjust: 100%; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans",
+          "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      button, select, input, textarea { font: inherit; color: inherit; }
+      button { cursor: pointer; }
+      button, [role="button"], select, summary,
+      input:not([type="checkbox"], [type="radio"]) { min-height: 2.75rem; }
+      .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px 48px; }
+      .num { font-variant-numeric: tabular-nums; }
+
+      /* 今日の合計 */
+      .today-label { margin: 20px 0 0; font-size: 14px; color: var(--dim); }
+      .today-total { display: flex; align-items: flex-end; gap: 8px; margin-top: 4px; }
+      .today-total .big {
+        font-size: 48px; font-weight: 800; line-height: 1;
+        color: var(--accent); font-variant-numeric: tabular-nums;
+      }
+      .today-total .unit { padding-bottom: 4px; font-weight: 600; color: var(--dim); }
+      .btn-primary {
+        display: block; width: 100%; margin-top: 16px; padding: 14px 16px;
+        border: none; border-radius: var(--radius);
+        background: var(--ink); color: var(--ink-text);
+        font-size: 16px; font-weight: 700;
+      }
+      .btn-primary:active { opacity: .85; }
+
+      /* カレンダー */
+      section { margin-top: 32px; }
+      .month-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+      .month-head h2 { margin: 0; font-size: 18px; font-weight: 800; }
+      .nav-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 44px; height: 44px; padding: 0 10px;
+        border: 1px solid var(--border); border-radius: 999px;
+        background: var(--surface); font-size: 18px; font-weight: 700;
+      }
+      .nav-group { display: flex; gap: 8px; align-items: center; }
+      .this-month-btn { font-size: 14px; font-weight: 600; }
+      .cal-card {
+        margin-top: 12px; overflow: hidden;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .cal-week {
+        display: grid; grid-template-columns: repeat(7, 1fr);
+        border-bottom: 1px solid var(--border);
+      }
+      .cal-week div { padding: 8px 0; text-align: center; font-size: 12px; font-weight: 700; color: var(--dim); }
+      .cal-week div.sun { color: var(--accent); }
+      .cal-week div.sat { color: var(--sat); }
+      .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+      .cal-cell {
+        display: flex; flex-direction: column; justify-content: space-between;
+        min-height: 62px; padding: 6px; border: none; background: none;
+        text-align: left;
+      }
+      .cal-cell.blank { pointer-events: none; }
+      .cal-cell.selected { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+      .cal-day {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 24px; height: 24px; border-radius: 999px;
+        font-size: 14px; font-weight: 500; font-variant-numeric: tabular-nums;
+      }
+      .cal-day.today { background: var(--ink); color: var(--ink-text); font-weight: 800; }
+      .cal-kcal { display: block; text-align: right; line-height: 1.25; }
+      .cal-kcal .v { display: block; font-size: 15px; font-weight: 800; color: var(--accent); font-variant-numeric: tabular-nums; }
+      .cal-kcal .c { display: block; font-size: 10px; color: var(--dim); font-variant-numeric: tabular-nums; }
+      .cal-dot { display: block; text-align: right; font-size: 10px; color: var(--border); }
+
+      .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+      .stat {
+        background: var(--surface); border-radius: var(--radius);
+        padding: 12px 8px; text-align: center;
+      }
+      .stat dt { font-size: 12px; color: var(--dim); }
+      .stat dd { margin: 4px 0 0; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .stat dd .u { margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--dim); }
+      .note { margin-top: 8px; font-size: 12px; color: var(--dim); }
+
+      /* 日の記録 */
+      .day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+      .day-head h2 { margin: 0; font-size: 18px; font-weight: 800; }
+      .today-tag { margin-left: 8px; font-size: 12px; font-weight: 700; color: var(--accent); }
+      .day-total { font-size: 16px; font-weight: 800; white-space: nowrap; }
+      .day-total .u { margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--dim); }
+      .day-card {
+        margin-top: 12px; overflow: hidden;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .empty { padding: 32px 16px; text-align: center; font-size: 14px; color: var(--dim); }
+      .entry { padding: 12px 16px; }
+      .entry + .entry { border-top: 1px solid var(--border); }
+      .entry-main { display: flex; align-items: center; gap: 12px; }
+      .slot-chip {
+        flex-shrink: 0; width: 44px; padding: 4px 0; text-align: center;
+        border-radius: 6px; background: var(--accent-soft); color: var(--accent);
+        font-size: 12px; font-weight: 800;
+      }
+      .entry-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+      .entry-kcal { flex-shrink: 0; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+      .entry-kcal .u { margin-left: 2px; font-size: 12px; font-weight: 600; color: var(--dim); }
+      .entry-actions { display: flex; gap: 4px; margin-top: 4px; padding-left: 56px; }
+      .text-btn {
+        min-height: 40px; padding: 6px 12px; border: none; border-radius: 999px;
+        background: none; font-size: 14px; font-weight: 600; color: var(--dim);
+        text-decoration: underline; text-underline-offset: 3px;
+      }
+      .confirm-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; padding-left: 56px; }
+      .confirm-row .q { font-size: 14px; color: var(--dim); }
+      .btn-danger {
+        padding: 8px 14px; border: none; border-radius: 999px;
+        background: var(--danger); color: #fff; font-size: 14px; font-weight: 700;
+      }
+      @media (prefers-color-scheme: dark) { .btn-danger { color: #10161c; } }
+      .btn-ghost {
+        padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px;
+        background: var(--surface); font-size: 14px; font-weight: 600;
+      }
+      .undo-bar {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 12px 16px; border-top: 1px solid var(--border); background: var(--accent-soft);
+        font-size: 14px;
+      }
+      .undo-bar .btns { display: flex; gap: 8px; flex-shrink: 0; }
+      .btn-add-day {
+        display: block; width: 100%; margin-top: 12px; padding: 14px 16px;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); font-size: 16px; font-weight: 700;
+      }
+
+      /* データ管理 */
+      .data-card {
+        margin-top: 12px; padding: 16px;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface);
+      }
+      .data-card h3 { margin: 20px 0 0; font-size: 15px; font-weight: 800; }
+      .data-card h3:first-child { margin-top: 0; }
+      .data-card p { font-size: 13px; color: var(--dim); line-height: 1.7; }
+      .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .btn-data {
+        padding: 10px 16px; border: 1px solid var(--border); border-radius: 999px;
+        background: var(--bg); font-size: 14px; font-weight: 700;
+      }
+      textarea.paste-box {
+        width: 100%; margin-top: 8px; padding: 10px 12px;
+        border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+        font-size: 13px; min-height: 88px;
+      }
+      .msg { margin-top: 8px; font-size: 14px; font-weight: 600; }
+      .msg.err { color: var(--danger); }
+      .sr-only {
+        position: absolute; width: 1px; height: 1px; overflow: hidden;
+        clip: rect(0 0 0 0); white-space: nowrap;
+      }
+
+      /* 入力フォーム（シート） */
+      .overlay {
+        position: fixed; inset: 0; z-index: 50;
+        display: flex; align-items: flex-end; justify-content: center;
+        background: rgba(0, 0, 0, .45);
+      }
+      .sheet {
+        width: 100%; max-width: 480px; max-height: 92vh; overflow-y: auto;
+        background: var(--surface); border-radius: 16px 16px 0 0;
+        padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+      }
+      @media (min-width: 640px) {
+        .overlay { align-items: center; }
+        .sheet { border-radius: 16px; }
+      }
+      .sheet h2 { margin: 0; font-size: 18px; font-weight: 800; }
+      .field { margin-top: 16px; }
+      .field > label, .field > .flabel {
+        display: block; font-size: 14px; font-weight: 700; color: var(--dim);
+      }
+      .field input[type="date"], .field input[type="text"], .field input[type="number"] {
+        width: 100%; margin-top: 4px; padding: 10px 12px;
+        border: 1px solid var(--border); border-radius: 8px; background: var(--bg);
+        font-size: 16px;
+      }
+      .slot-group { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 4px; }
+      .slot-btn {
+        padding: 10px 4px; border: 1px solid var(--border); border-radius: 8px;
+        background: var(--bg); font-size: 16px; font-weight: 700;
+      }
+      .slot-btn.on {
+        border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
+      }
+      .hint { margin-top: 4px; font-size: 12px; color: var(--dim); line-height: 1.6; }
+      .convert-box { margin-top: 16px; padding: 12px; border-radius: 8px; background: var(--accent-soft); }
+      .btn-convert {
+        display: block; width: 100%; padding: 12px 16px; border: none;
+        border-radius: var(--radius); background: var(--accent); color: #fff;
+        font-size: 16px; font-weight: 800;
+      }
+      .btn-convert:disabled { opacity: .6; }
+      .convert-result {
+        margin-top: 12px; padding: 12px; border-radius: 8px; background: var(--surface);
+      }
+      .convert-result .ttl { font-size: 14px; font-weight: 800; }
+      .convert-result ul { margin: 8px 0 0; padding: 0; list-style: none; }
+      .convert-result li {
+        display: flex; align-items: baseline; gap: 8px; padding: 6px 0;
+        font-size: 14px; border-top: 1px solid var(--border);
+      }
+      .convert-result li:first-child { border-top: none; }
+      .convert-result li .n { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+      .convert-result li .k { flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+      .form-err { margin-top: 12px; font-size: 14px; font-weight: 600; color: var(--danger); }
+      .form-btns { display: flex; gap: 8px; margin-top: 20px; }
+      .btn-save {
+        flex: 1; padding: 12px 16px; border: none; border-radius: var(--radius);
+        background: var(--ink); color: var(--ink-text); font-size: 16px; font-weight: 700;
+      }
+      .btn-cancel {
+        padding: 12px 16px; border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); font-size: 16px; font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <!-- 今日の合計 -->
+      <section aria-label="今日の合計" style="margin-top:0">
+        <p class="today-label" id="todayLabel"></p>
+        <div class="today-total">
+          <span class="big num" id="todayTotal">0</span>
+          <span class="unit">kcal</span>
+        </div>
+        <button type="button" class="btn-primary" id="quickAdd">＋ 食事を記録する</button>
+      </section>
+
+      <!-- 月カレンダー -->
+      <section aria-label="月カレンダー">
+        <div class="month-head">
+          <button type="button" class="nav-btn" id="prevMonth" aria-label="前の月">‹</button>
+          <h2 id="monthLabel"></h2>
+          <div class="nav-group">
+            <button type="button" class="nav-btn this-month-btn" id="thisMonth" hidden>今月</button>
+            <button type="button" class="nav-btn" id="nextMonth" aria-label="次の月">›</button>
+          </div>
+        </div>
+        <div class="cal-card">
+          <div class="cal-week" id="calWeek"></div>
+          <div class="cal-grid" id="calGrid"></div>
+        </div>
+        <dl class="stats">
+          <div class="stat"><dt>今月の合計</dt><dd><span id="statTotal">0</span><span class="u">kcal</span></dd></div>
+          <div class="stat"><dt>1日平均</dt><dd><span id="statAvg">—</span><span class="u">kcal</span></dd></div>
+          <div class="stat"><dt>記録した日</dt><dd><span id="statDays">0</span><span class="u">日</span></dd></div>
+        </dl>
+        <p class="note">1日平均は、記録のある日の合計から計算しています。</p>
+      </section>
+
+      <!-- 選んだ日の記録 -->
+      <section aria-label="日の記録">
+        <div class="day-head">
+          <h2><span id="dayLabel"></span><span class="today-tag" id="dayTodayTag" hidden>今日</span></h2>
+          <p class="day-total num">合計 <span id="dayTotal">0</span><span class="u">kcal</span></p>
+        </div>
+        <div class="day-card" id="dayCard"></div>
+        <button type="button" class="btn-add-day" id="addToDay">＋ この日に追加</button>
+      </section>
+
+      <!-- データの管理 -->
+      <section aria-label="データの管理">
+        <h2 style="margin:0;font-size:18px;font-weight:800">データの管理</h2>
+        <div class="data-card">
+          <p style="margin-top:0">
+            記録はこの端末の中だけに保存されます。機種変更や別の端末へ移すときは、書き出して取り込んでください。スペース版の記録（2026年11月24日〜26日の11件）は、このHTML版に引き継がれています。
+          </p>
+          <h3>書き出し</h3>
+          <div class="btn-row">
+            <button type="button" class="btn-data" id="exportFile">ファイルに書き出す</button>
+            <button type="button" class="btn-data" id="exportCopy">データをコピーする</button>
+          </div>
+          <p class="msg" id="exportMsg" role="status"></p>
+          <h3>取り込み</h3>
+          <p>書き出したファイルを選ぶか、下の欄にコピーしたデータを貼り付けてください。取り込んだ記録は、今ある記録に追加されます（重複したら手作業で整理してください）。</p>
+          <div class="btn-row">
+            <button type="button" class="btn-data" id="importFileBtn">ファイルから取り込む</button>
+            <input type="file" id="importFile" accept=".json,application/json,text/plain" class="sr-only" aria-label="取り込むファイルを選ぶ" />
+          </div>
+          <textarea class="paste-box" id="importText" placeholder="ここに書き出したデータを貼り付け" aria-label="取り込むデータを貼り付け"></textarea>
+          <div class="btn-row">
+            <button type="button" class="btn-data" id="importTextBtn">貼り付けたデータを取り込む</button>
+          </div>
+          <p class="msg" id="importMsg" role="status"></p>
+        </div>
+      </section>
+    </main>
+
+    <!-- 入力フォーム -->
+    <div class="overlay" id="overlay" hidden>
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="formTitle">
+        <h2 id="formTitle">食事を記録</h2>
+
+        <div class="field">
+          <label for="fDate">日付</label>
+          <input type="date" id="fDate" />
+        </div>
+
+        <div class="field">
+          <span class="flabel" id="slotLabel">食事</span>
+          <div class="slot-group" role="radiogroup" aria-labelledby="slotLabel" id="slotGroup"></div>
+        </div>
+
+        <div class="field">
+          <label for="fName">食べたもの</label>
+          <input type="text" id="fName" placeholder="例：カレーライスと千切りキャベツ、ワイン100ml" autocomplete="off" />
+          <p class="hint">量が分かれば一緒に書くと変換の目安が合いやすくなります（例：ご飯大盛り、ビール350ml缶1本）。</p>
+        </div>
+
+        <div class="convert-box">
+          <button type="button" class="btn-convert" id="btnConvert">カロリー変換</button>
+          <p class="hint">食べたものから、内蔵の目安表でカロリーを概算して下の欄に入れます。変換だけでは保存されません。結果を確認し、違えば直してから保存してください。目安表にない食品は変換できません。</p>
+          <p class="form-err" id="convertErr" role="alert" hidden></p>
+          <div class="convert-result" id="convertResult" hidden>
+            <p class="ttl" id="convertTotal"></p>
+            <ul id="convertItems"></ul>
+            <p class="hint" id="convertMiss" hidden></p>
+            <p class="hint">合計は下のカロリー欄に入りました。そのまま保存するか、数字を直してから保存してください。</p>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="fKcal">カロリー（kcal）</label>
+          <input type="number" id="fKcal" inputmode="numeric" min="0" max="10000" step="1" placeholder="例：650（変換で自動入力もできます）" />
+        </div>
+
+        <p class="form-err" id="formErr" role="alert" hidden></p>
+
+        <div class="form-btns">
+          <button type="button" class="btn-save" id="btnSave">この内容で保存する</button>
+          <button type="button" class="btn-cancel" id="btnCancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+
+      /* ============ データ ============ */
+      var STORE_KEY = "karorikarenda-html-v1";
+      var SLOTS = ["朝食", "昼食", "夕食", "間食"];
+      var SLOT_ORDER = { "朝食": 0, "昼食": 1, "夕食": 2, "間食": 3 };
+      var WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+      // スペース版から引き継いだ記録（初回起動時のみ使われる）
+      var SEED = [
+        { date: "2026-11-24", slot: "朝食", name: "市販の菓子パンで味はシナモンシュガーロールです。アイスコーヒー200ml飲みました。", kcal: 370 },
+        { date: "2026-11-24", slot: "昼食", name: "コンビニオニギリ3個に相当する手作りオニギリ2個、味は梅と唐揚げです。", kcal: 590 },
+        { date: "2026-11-24", slot: "夕食", name: "カレーライス（一般的な一人前）", kcal: 750 },
+        { date: "2026-11-24", slot: "夕食", name: "千切りキャベツ（梅ドレッシング）", kcal: 40 },
+        { date: "2026-11-24", slot: "間食", name: "チョコ菓子 1つ", kcal: 50 },
+        { date: "2026-11-24", slot: "間食", name: "ワイン 100ml", kcal: 75 },
+        { date: "2026-11-25", slot: "朝食", name: "食パン2枚、バター塗布、アイスコーヒー200ml", kcal: 350 },
+        { date: "2026-11-25", slot: "昼食", name: "コンビニオニギリ3個に相当する手作りオニギリ2個で、梅、唐揚げ味", kcal: 600 },
+        { date: "2026-11-25", slot: "夕食", name: "ご飯標準茶碗一杯とベーコンポテト一人前と木綿豆腐冷ポン酢添", kcal: 630 },
+        { date: "2026-11-26", slot: "朝食", name: "10枚切り食パントースト2枚でマーガリンとママレード塗布、柿1個、アイスコーヒー200ml", kcal: 420 },
+        { date: "2026-11-26", slot: "昼食", name: "おオニギリ2つだが、各々コンビニオニギリの1.5倍程度で味は昆布と梅", kcal: 540 }
+      ];
+
+      var entries = [];
+      var nextId = 1;
+
+      function save() {
+        try {
+          localStorage.setItem(STORE_KEY, JSON.stringify({ v: 1, nextId: nextId, entries: entries }));
+        } catch (e) { /* 保存できない環境では画面上の記録のみで続行 */ }
+      }
+
+      function load() {
+        var raw = null;
+        try { raw = localStorage.getItem(STORE_KEY); } catch (e) { raw = null; }
+        if (raw) {
+          try {
+            var data = JSON.parse(raw);
+            if (data && Array.isArray(data.entries)) {
+              entries = data.entries.filter(validEntry);
+              nextId = typeof data.nextId === "number" && data.nextId > 0
+                ? data.nextId
+                : entries.reduce(function (m, e) { return Math.max(m, e.id || 0); }, 0) + 1;
+              return;
+            }
+          } catch (e) { /* 壊れていたら引き継ぎデータから始める */ }
+        }
+        entries = SEED.map(function (s, i) {
+          return { id: i + 1, date: s.date, slot: s.slot, name: s.name, kcal: s.kcal };
+        });
+        nextId = entries.length + 1;
+        save();
+      }
+
+      function validEntry(e) {
+        return e && typeof e.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(e.date)
+          && SLOTS.indexOf(e.slot) >= 0
+          && typeof e.name === "string" && e.name.length > 0
+          && typeof e.kcal === "number" && isFinite(e.kcal) && e.kcal >= 0;
+      }
+
+      /* ============ 日付ユーティリティ ============ */
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function dateStr(d) { return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()); }
+      function todayStr() { return dateStr(new Date()); }
+      function monthOf(date) { return date.slice(0, 7); }
+      function parseDate(v) { return new Date(v + "T00:00:00"); }
+      function dayLabel(date) {
+        var d = parseDate(date);
+        return (d.getMonth() + 1) + "月" + d.getDate() + "日（" + WEEKDAYS[d.getDay()] + "）";
+      }
+      function monthLabel(month) {
+        var p = month.split("-");
+        return Number(p[0]) + "年" + Number(p[1]) + "月";
+      }
+      function shiftMonth(month, delta) {
+        var p = month.split("-").map(Number);
+        var d = new Date(p[0], p[1] - 1 + delta, 1);
+        return d.getFullYear() + "-" + pad(d.getMonth() + 1);
+      }
+      function fmt(n) { return n.toLocaleString("ja-JP"); }
+      function currentSlot() {
+        var h = new Date().getHours();
+        if (h < 10) return "朝食";
+        if (h < 15) return "昼食";
+        if (h < 21) return "夕食";
+        return "間食";
+      }
+
+      /* ============ 状態 ============ */
+      var today = todayStr();
+      var viewMonth = monthOf(today);
+      var selectedDate = today;
+      var lastDeleted = null;
+      var confirmingId = null;
+      var formState = null; // {mode:"add",date} | {mode:"edit",id}
+      var formSlot = "朝食";
+
+      function dayTotalsMap(month) {
+        var map = {};
+        entries.forEach(function (e) {
+          if (monthOf(e.date) !== month) return;
+          if (!map[e.date]) map[e.date] = { total: 0, count: 0 };
+          map[e.date].total += e.kcal;
+          map[e.date].count += 1;
+        });
+        return map;
+      }
+      function totalOf(date) {
+        return entries.reduce(function (s, e) { return e.date === date ? s + e.kcal : s; }, 0);
+      }
+      function entriesOf(date) {
+        return entries.filter(function (e) { return e.date === date; })
+          .sort(function (a, b) {
+            return (SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot]) || (a.id - b.id);
+          });
+      }
+
+      /* ============ 描画 ============ */
+      var $ = function (id) { return document.getElementById(id); };
+
+      function render() {
+        today = todayStr();
+        $("todayLabel").textContent = "今日 " + dayLabel(today);
+        $("todayTotal").textContent = fmt(totalOf(today));
+
+        $("monthLabel").textContent = monthLabel(viewMonth);
+        $("thisMonth").hidden = viewMonth === monthOf(today);
+
+        // 曜日ヘッダー
+        var week = $("calWeek");
+        week.innerHTML = "";
+        WEEKDAYS.forEach(function (w, i) {
+          var d = document.createElement("div");
+          d.textContent = w;
+          if (i === 0) d.className = "sun";
+          if (i === 6) d.className = "sat";
+          week.appendChild(d);
+        });
+
+        // カレンダー本体
+        var totals = dayTotalsMap(viewMonth);
+        var grid = $("calGrid");
+        grid.innerHTML = "";
+        var p = viewMonth.split("-").map(Number);
+        var firstDow = new Date(p[0], p[1] - 1, 1).getDay();
+        var daysInMonth = new Date(p[0], p[1], 0).getDate();
+        var cells = [];
+        var i;
+        for (i = 0; i < firstDow; i++) cells.push(null);
+        for (i = 1; i <= daysInMonth; i++) cells.push(viewMonth + "-" + pad(i));
+        while (cells.length % 7 !== 0) cells.push(null);
+        cells.forEach(function (date) {
+          if (!date) {
+            var blank = document.createElement("div");
+            blank.className = "cal-cell blank";
+            blank.setAttribute("aria-hidden", "true");
+            grid.appendChild(blank);
+            return;
+          }
+          var info = totals[date];
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "cal-cell" + (date === selectedDate ? " selected" : "");
+          btn.setAttribute("aria-pressed", date === selectedDate ? "true" : "false");
+          btn.setAttribute("aria-label", dayLabel(date) + (info ? " 合計" + info.total + "キロカロリー " + info.count + "件" : ""));
+          var daySpan = document.createElement("span");
+          daySpan.className = "cal-day" + (date === today ? " today" : "");
+          daySpan.textContent = String(Number(date.slice(8)));
+          btn.appendChild(daySpan);
+          if (info) {
+            var k = document.createElement("span");
+            k.className = "cal-kcal";
+            var v = document.createElement("span");
+            v.className = "v";
+            v.textContent = fmt(info.total);
+            var c = document.createElement("span");
+            c.className = "c";
+            c.textContent = info.count + "件";
+            k.appendChild(v);
+            k.appendChild(c);
+            btn.appendChild(k);
+          } else {
+            var dot = document.createElement("span");
+            dot.className = "cal-dot";
+            dot.textContent = "·";
+            btn.appendChild(dot);
+          }
+          btn.addEventListener("click", function () { pickDay(date); });
+          grid.appendChild(btn);
+        });
+
+        // 月の集計
+        var sum = 0, days = 0;
+        Object.keys(totals).forEach(function (k) { sum += totals[k].total; days += 1; });
+        $("statTotal").textContent = fmt(sum);
+        $("statAvg").textContent = days > 0 ? fmt(Math.round(sum / days)) : "—";
+        $("statDays").textContent = String(days);
+
+        renderDay();
+      }
+
+      function renderDay() {
+        $("dayLabel").textContent = dayLabel(selectedDate);
+        $("dayTodayTag").hidden = selectedDate !== today;
+        $("dayTotal").textContent = fmt(totalOf(selectedDate));
+
+        var card = $("dayCard");
+        card.innerHTML = "";
+        var list = entriesOf(selectedDate);
+        if (list.length === 0) {
+          var empty = document.createElement("p");
+          empty.className = "empty";
+          empty.textContent = "この日の記録はまだありません。";
+          card.appendChild(empty);
+        } else {
+          list.forEach(function (e) { card.appendChild(entryRow(e)); });
+        }
+        if (lastDeleted && lastDeleted.date === selectedDate) {
+          card.appendChild(undoBar(lastDeleted));
+        }
+      }
+
+      function entryRow(e) {
+        var row = document.createElement("div");
+        row.className = "entry";
+        var main = document.createElement("div");
+        main.className = "entry-main";
+        var chip = document.createElement("span");
+        chip.className = "slot-chip";
+        chip.textContent = e.slot;
+        var name = document.createElement("span");
+        name.className = "entry-name";
+        name.textContent = e.name;
+        var kcal = document.createElement("span");
+        kcal.className = "entry-kcal num";
+        kcal.textContent = fmt(e.kcal);
+        var u = document.createElement("span");
+        u.className = "u";
+        u.textContent = "kcal";
+        kcal.appendChild(u);
+        main.appendChild(chip);
+        main.appendChild(name);
+        main.appendChild(kcal);
+        row.appendChild(main);
+
+        if (confirmingId === e.id) {
+          var conf = document.createElement("div");
+          conf.className = "confirm-row";
+          var q = document.createElement("span");
+          q.className = "q";
+          q.textContent = "削除しますか？";
+          var del = document.createElement("button");
+          del.type = "button";
+          del.className = "btn-danger";
+          del.textContent = "削除する";
+          del.addEventListener("click", function () { deleteEntry(e.id); });
+          var cancel = document.createElement("button");
+          cancel.type = "button";
+          cancel.className = "btn-ghost";
+          cancel.textContent = "やめる";
+          cancel.addEventListener("click", function () { confirmingId = null; renderDay(); });
+          conf.appendChild(q);
+          conf.appendChild(del);
+          conf.appendChild(cancel);
+          row.appendChild(conf);
+        } else {
+          var actions = document.createElement("div");
+          actions.className = "entry-actions";
+          var edit = document.createElement("button");
+          edit.type = "button";
+          edit.className = "text-btn";
+          edit.textContent = "訂正";
+          edit.addEventListener("click", function () { openForm({ mode: "edit", id: e.id }); });
+          var delBtn = document.createElement("button");
+          delBtn.type = "button";
+          delBtn.className = "text-btn";
+          delBtn.textContent = "削除";
+          delBtn.addEventListener("click", function () { confirmingId = e.id; renderDay(); });
+          actions.appendChild(edit);
+          actions.appendChild(delBtn);
+          row.appendChild(actions);
+        }
+        return row;
+      }
+
+      function undoBar(e) {
+        var bar = document.createElement("div");
+        bar.className = "undo-bar";
+        var label = document.createElement("span");
+        label.textContent = "「" + e.name + "」を削除しました";
+        var btns = document.createElement("span");
+        btns.className = "btns";
+        var undo = document.createElement("button");
+        undo.type = "button";
+        undo.className = "btn-ghost";
+        undo.textContent = "取り消す";
+        undo.addEventListener("click", function () {
+          entries.push({ id: nextId++, date: e.date, slot: e.slot, name: e.name, kcal: e.kcal });
+          lastDeleted = null;
+          save();
+          render();
+        });
+        var close = document.createElement("button");
+        close.type = "button";
+        close.className = "btn-ghost";
+        close.textContent = "閉じる";
+        close.addEventListener("click", function () { lastDeleted = null; renderDay(); });
+        btns.appendChild(undo);
+        btns.appendChild(close);
+        bar.appendChild(label);
+        bar.appendChild(btns);
+        return bar;
+      }
+
+      function deleteEntry(id) {
+        var idx = entries.findIndex(function (e) { return e.id === id; });
+        if (idx < 0) return;
+        lastDeleted = entries[idx];
+        entries.splice(idx, 1);
+        confirmingId = null;
+        save();
+        render();
+      }
+
+      function pickDay(date) {
+        selectedDate = date;
+        confirmingId = null;
+        if (monthOf(date) !== viewMonth) viewMonth = monthOf(date);
+        render();
+      }
+
+      function goMonth(delta) {
+        viewMonth = shiftMonth(viewMonth, delta);
+        confirmingId = null;
+        if (monthOf(selectedDate) !== viewMonth) {
+          selectedDate = viewMonth === monthOf(todayStr()) ? todayStr() : viewMonth + "-01";
+        }
+        render();
+      }
+
+      /* ============ カロリー変換（内蔵の目安表） ============ */
+      // kcal: 標準量1つ分の目安。perMl がある飲み物は ml 数で計算する。
+      var FOOD_TABLE = [
+        { keys: ["カレーライス", "カレー"], kcal: 750, portion: "1人前" },
+        { keys: ["ハヤシライス"], kcal: 700, portion: "1人前" },
+        { keys: ["親子丼"], kcal: 700, portion: "1人前" },
+        { keys: ["カツ丼", "かつ丼"], kcal: 850, portion: "1人前" },
+        { keys: ["牛丼"], kcal: 700, portion: "並盛" },
+        { keys: ["天丼"], kcal: 800, portion: "1人前" },
+        { keys: ["うな丼", "鰻丼"], kcal: 850, portion: "1人前" },
+        { keys: ["海鮮丼"], kcal: 550, portion: "1人前" },
+        { keys: ["オムライス"], kcal: 750, portion: "1人前" },
+        { keys: ["チャーハン", "炒飯"], kcal: 750, portion: "1人前" },
+        { keys: ["おにぎり", "オニギリ", "おむすび"], kcal: 180, portion: "1個" },
+        { keys: ["ご飯", "ごはん", "白米", "ライス"], kcal: 250, portion: "茶碗1杯" },
+        { keys: ["玄米"], kcal: 235, portion: "茶碗1杯" },
+        { keys: ["味噌ラーメン"], kcal: 600, portion: "1杯" },
+        { keys: ["豚骨ラーメン", "とんこつラーメン"], kcal: 650, portion: "1杯" },
+        { keys: ["つけ麺"], kcal: 750, portion: "1人前" },
+        { keys: ["ラーメン"], kcal: 550, portion: "1杯" },
+        { keys: ["カップ麺", "カップラーメン"], kcal: 450, portion: "1個" },
+        { keys: ["焼きそば"], kcal: 550, portion: "1人前" },
+        { keys: ["焼きうどん"], kcal: 550, portion: "1人前" },
+        { keys: ["冷やし中華"], kcal: 500, portion: "1人前" },
+        { keys: ["ナポリタン"], kcal: 650, portion: "1人前" },
+        { keys: ["パスタ", "スパゲッティ", "スパゲティ"], kcal: 600, portion: "1人前" },
+        { keys: ["うどん"], kcal: 350, portion: "1杯" },
+        { keys: ["そば", "蕎麦"], kcal: 320, portion: "1杯" },
+        { keys: ["そうめん", "素麺"], kcal: 350, portion: "1人前" },
+        { keys: ["食パン", "トースト"], kcal: 160, portion: "1枚（6枚切り）" },
+        { keys: ["菓子パン"], kcal: 350, portion: "1個" },
+        { keys: ["メロンパン"], kcal: 380, portion: "1個" },
+        { keys: ["クロワッサン"], kcal: 200, portion: "1個" },
+        { keys: ["ロールパン"], kcal: 95, portion: "1個" },
+        { keys: ["サンドイッチ"], kcal: 350, portion: "1パック" },
+        { keys: ["チーズバーガー"], kcal: 450, portion: "1個" },
+        { keys: ["ハンバーガー"], kcal: 400, portion: "1個" },
+        { keys: ["ホットドッグ"], kcal: 400, portion: "1個" },
+        { keys: ["唐揚げ", "から揚げ", "からあげ"], kcal: 300, portion: "1人前" },
+        { keys: ["生姜焼き", "しょうが焼き"], kcal: 450, portion: "1人前" },
+        { keys: ["ハンバーグ"], kcal: 450, portion: "1人前" },
+        { keys: ["ステーキ"], kcal: 500, portion: "1人前" },
+        { keys: ["とんかつ", "トンカツ"], kcal: 550, portion: "1人前" },
+        { keys: ["エビフライ", "海老フライ"], kcal: 300, portion: "1人前" },
+        { keys: ["コロッケ"], kcal: 180, portion: "1個" },
+        { keys: ["餃子", "ギョーザ"], kcal: 350, portion: "6個" },
+        { keys: ["焼き魚", "焼魚"], kcal: 200, portion: "1切れ" },
+        { keys: ["刺身", "お刺身"], kcal: 150, portion: "1人前" },
+        { keys: ["焼き鳥", "焼鳥"], kcal: 80, portion: "1本" },
+        { keys: ["卵焼き", "玉子焼き"], kcal: 120, portion: "1人前" },
+        { keys: ["目玉焼き"], kcal: 100, portion: "1個分" },
+        { keys: ["ゆで卵", "ゆでたまご", "茹で卵"], kcal: 80, portion: "1個" },
+        { keys: ["納豆"], kcal: 100, portion: "1パック" },
+        { keys: ["冷奴", "豆腐"], kcal: 80, portion: "半丁" },
+        { keys: ["味噌汁", "みそ汁"], kcal: 40, portion: "1杯" },
+        { keys: ["千切りキャベツ"], kcal: 20, portion: "1皿" },
+        { keys: ["ポテトサラダ"], kcal: 150, portion: "1皿" },
+        { keys: ["サラダ"], kcal: 60, portion: "1皿" },
+        { keys: ["フライドポテト"], kcal: 300, portion: "Mサイズ" },
+        { keys: ["ドレッシング"], kcal: 50, portion: "大さじ1強" },
+        { keys: ["バター", "マーガリン"], kcal: 75, portion: "10g" },
+        { keys: ["マーマレード", "ジャム"], kcal: 40, portion: "大さじ1" },
+        { keys: ["肉まん"], kcal: 230, portion: "1個" },
+        { keys: ["アメリカンドッグ"], kcal: 280, portion: "1本" },
+        { keys: ["フランクフルト"], kcal: 200, portion: "1本" },
+        { keys: ["サラダチキン"], kcal: 110, portion: "1個" },
+        { keys: ["ヨーグルト"], kcal: 70, portion: "1個" },
+        { keys: ["寿司", "すし", "鮨"], kcal: 500, portion: "1人前" },
+        { keys: ["ピザ"], kcal: 700, portion: "1人前" },
+        { keys: ["弁当"], kcal: 700, portion: "1個" },
+        { keys: ["チョコ菓子"], kcal: 50, portion: "1つ" },
+        { keys: ["チョコレート", "チョコ"], kcal: 280, portion: "板1枚" },
+        { keys: ["ポテトチップス"], kcal: 550, portion: "1袋" },
+        { keys: ["クッキー"], kcal: 80, portion: "1枚" },
+        { keys: ["ショートケーキ", "ケーキ"], kcal: 350, portion: "1切れ" },
+        { keys: ["プリン"], kcal: 130, portion: "1個" },
+        { keys: ["アイスクリーム", "アイス"], kcal: 200, portion: "1個" },
+        { keys: ["ゼリー"], kcal: 60, portion: "1個" },
+        { keys: ["せんべい", "煎餅"], kcal: 40, portion: "1枚" },
+        { keys: ["どら焼き"], kcal: 280, portion: "1個" },
+        { keys: ["大福"], kcal: 230, portion: "1個" },
+        { keys: ["りんご", "リンゴ", "林檎"], kcal: 140, portion: "1個" },
+        { keys: ["バナナ"], kcal: 90, portion: "1本" },
+        { keys: ["みかん", "ミカン"], kcal: 45, portion: "1個" },
+        { keys: ["柿"], kcal: 70, portion: "1個" },
+        { keys: ["ぶどう", "ブドウ", "葡萄"], kcal: 120, portion: "1房" },
+        { keys: ["梨"], kcal: 110, portion: "1個" },
+        { keys: ["桃"], kcal: 90, portion: "1個" },
+        // 飲み物（100mlあたり）
+        { keys: ["ビール"], perMl: 0.40, defaultMl: 350, portion: "ml数で計算" },
+        { keys: ["ワイン"], perMl: 0.73, defaultMl: 120, portion: "ml数で計算" },
+        { keys: ["日本酒"], perMl: 1.03, defaultMl: 180, portion: "ml数で計算" },
+        { keys: ["焼酎"], perMl: 1.46, defaultMl: 100, portion: "ml数で計算" },
+        { keys: ["ハイボール"], perMl: 0.35, defaultMl: 350, portion: "ml数で計算" },
+        { keys: ["チューハイ", "サワー"], perMl: 0.55, defaultMl: 350, portion: "ml数で計算" },
+        { keys: ["カフェラテ", "カフェオレ"], perMl: 0.65, defaultMl: 240, portion: "ml数で計算" },
+        { keys: ["アイスコーヒー", "コーヒー"], perMl: 0.04, defaultMl: 200, portion: "ブラック・ml数で計算" },
+        { keys: ["コーラ"], perMl: 0.45, defaultMl: 350, portion: "ml数で計算" },
+        { keys: ["オレンジジュース", "ジュース"], perMl: 0.45, defaultMl: 200, portion: "ml数で計算" },
+        { keys: ["牛乳", "ミルク"], perMl: 0.67, defaultMl: 200, portion: "ml数で計算" },
+        { keys: ["スポーツドリンク"], perMl: 0.25, defaultMl: 500, portion: "ml数で計算" },
+        { keys: ["お茶", "緑茶", "麦茶"], perMl: 0.02, defaultMl: 200, portion: "ml数で計算" }
+      ];
+      // 照合は「キー文字列の長い順」に行う（「アイスコーヒー」を
+      // 「アイス」より先に、「カレーライス」を「カレー」より先に拾うため）。
+      var MATCHERS = [];
+      FOOD_TABLE.forEach(function (food) {
+        food.keys.forEach(function (k) { MATCHERS.push({ food: food, key: k }); });
+      });
+      MATCHERS.sort(function (a, b) { return b.key.length - a.key.length; });
+
+      function toHalfDigits(s) {
+        return s.replace(/[０-９]/g, function (c) {
+          return String.fromCharCode(c.charCodeAt(0) - 0xFEE0);
+        }).replace(/．/g, ".");
+      }
+
+      // キーワードの直後から数量（数字＋単位、または ×N）を探す
+      function findQty(text, fromIdx) {
+        var rest = text.slice(fromIdx, fromIdx + 10);
+        var m = rest.match(/^\s*[×xX]\s*(\d+(?:\.\d+)?)/);
+        if (m) return parseFloat(m[1]);
+        m = rest.match(/^\s*(\d+(?:\.\d+)?)\s*(個|つ|本|枚|杯|缶|皿|食|パック|袋|切れ|玉|かけ|人前|房|切|セット)?/);
+        if (m && m[2]) return parseFloat(m[1]);
+        return 1;
+      }
+
+      function estimate(text) {
+        var norm = toHalfDigits(text).replace(/\s+/g, "");
+        var claimed = norm.split("").map(function () { return false; });
+        var counted = [];
+        var items = [];
+        MATCHERS.forEach(function (mt) {
+          var food = mt.food, key = mt.key;
+          if (counted.indexOf(food) >= 0) return;
+          var idx = norm.indexOf(key);
+          while (idx >= 0) {
+            var overlap = false;
+            for (var j = idx; j < idx + key.length; j++) if (claimed[j]) { overlap = true; break; }
+            if (!overlap) {
+              for (var j2 = idx; j2 < idx + key.length; j2++) claimed[j2] = true;
+              counted.push(food);
+                var kcal, portion;
+                if (food.perMl) {
+                  var after = norm.slice(idx + key.length, idx + key.length + 12);
+                  var before = norm.slice(Math.max(0, idx - 6), idx);
+                  var mm = after.match(/^(\d+(?:\.\d+)?)\s*(ml|cc)/i) || before.match(/(\d+(?:\.\d+)?)\s*(ml|cc)\s*$/i);
+                  var ml = mm ? parseFloat(mm[1]) : food.defaultMl;
+                  var cans = findQty(norm, idx + key.length + (mm ? mm[0].length : 0));
+                  kcal = Math.round(food.perMl * ml * cans);
+                  portion = ml + "ml" + (cans !== 1 ? " ×" + cans : "");
+                } else {
+                  var qty = findQty(norm, idx + key.length);
+                  var mult = qty;
+                  var near = norm.slice(idx, idx + key.length + 8);
+                  if (/大盛/.test(near)) mult = qty * 1.5;
+                  if (/半分/.test(near)) mult = qty * 0.5;
+                  kcal = Math.round(food.kcal * mult);
+                  portion = food.portion + (mult !== 1 ? " ×" + mult : "");
+                }
+                items.push({ name: key, portion: portion, kcal: kcal });
+                break; // 同じ食品は1回だけ数える
+              }
+              idx = norm.indexOf(key, idx + 1);
+            }
+        });
+        // 変換できなかった部分（区切りごとに、照合済みキーワードを含まないもの）
+        var parts = toHalfDigits(text).split(/[、,・\n]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+        var missed = parts.filter(function (part) {
+          var np = part.replace(/\s+/g, "");
+          return !FOOD_TABLE.some(function (food) {
+            return food.keys.some(function (k) { return np.indexOf(k) >= 0; });
+          });
+        });
+        var total = items.reduce(function (s, it) { return s + it.kcal; }, 0);
+        return { items: items, total: total, missed: missed };
+      }
+
+      /* ============ フォーム ============ */
+      function buildSlotButtons() {
+        var g = $("slotGroup");
+        g.innerHTML = "";
+        SLOTS.forEach(function (s) {
+          var b = document.createElement("button");
+          b.type = "button";
+          b.className = "slot-btn" + (formSlot === s ? " on" : "");
+          b.textContent = s;
+          b.setAttribute("role", "radio");
+          b.setAttribute("aria-checked", formSlot === s ? "true" : "false");
+          b.addEventListener("click", function () {
+            formSlot = s;
+            buildSlotButtons();
+          });
+          g.appendChild(b);
+        });
+      }
+
+      function openForm(state) {
+        formState = state;
+        confirmingId = null;
+        var editing = state.mode === "edit"
+          ? entries.find(function (e) { return e.id === state.id; })
+          : null;
+        if (state.mode === "edit" && !editing) return;
+        $("formTitle").textContent = editing ? "記録を訂正" : "食事を記録";
+        $("fDate").value = editing ? editing.date : state.date;
+        formSlot = editing ? editing.slot : currentSlot();
+        buildSlotButtons();
+        $("fName").value = editing ? editing.name : "";
+        $("fKcal").value = editing ? String(editing.kcal) : "";
+        $("btnSave").textContent = editing ? "訂正して保存" : "この内容で保存する";
+        $("btnCancel").textContent = editing ? "訂正をやめる" : "キャンセル";
+        $("formErr").hidden = true;
+        $("convertErr").hidden = true;
+        $("convertResult").hidden = true;
+        $("overlay").hidden = false;
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeForm() {
+        $("overlay").hidden = true;
+        document.body.style.overflow = "";
+        formState = null;
+      }
+
+      function runConvert() {
+        var name = $("fName").value.trim();
+        var err = $("convertErr");
+        if (!name) {
+          err.textContent = "食べたものを入力してから変換してください。";
+          err.hidden = false;
+          $("convertResult").hidden = true;
+          return;
+        }
+        var res = estimate(name);
+        if (res.items.length === 0) {
+          err.textContent = "目安表にない食品のため変換できませんでした。カロリーを直接入力してください。";
+          err.hidden = false;
+          $("convertResult").hidden = true;
+          return;
+        }
+        err.hidden = true;
+        $("convertTotal").textContent = "変換結果：約 " + fmt(res.total) + " kcal";
+        var ul = $("convertItems");
+        ul.innerHTML = "";
+        res.items.forEach(function (it) {
+          var li = document.createElement("li");
+          var n = document.createElement("span");
+          n.className = "n";
+          n.textContent = it.name + "（" + it.portion + "）";
+          var k = document.createElement("span");
+          k.className = "k";
+          k.textContent = "約" + fmt(it.kcal) + " kcal";
+          li.appendChild(n);
+          li.appendChild(k);
+          ul.appendChild(li);
+        });
+        var miss = $("convertMiss");
+        if (res.missed.length > 0) {
+          miss.textContent = "目安表になく変換できなかったもの：" + res.missed.join("、") + "（合計には含まれていません）";
+          miss.hidden = false;
+        } else {
+          miss.hidden = true;
+        }
+        $("convertResult").hidden = false;
+        $("fKcal").value = String(res.total);
+      }
+
+      function submitForm() {
+        var err = $("formErr");
+        var date = $("fDate").value;
+        var name = $("fName").value.trim();
+        var kcalText = $("fKcal").value.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          err.textContent = "日付を選んでください。";
+          err.hidden = false;
+          return;
+        }
+        if (!name) {
+          err.textContent = "食べたものを入力してください。カロリーが分からないときは「カロリー変換」を押すと概算が入ります。";
+          err.hidden = false;
+          return;
+        }
+        var kcal = Number(kcalText);
+        if (kcalText === "" || !Number.isInteger(kcal) || kcal < 0) {
+          err.textContent = "カロリーは0以上の整数で入力してください。「カロリー変換」で概算を入れることもできます。";
+          err.hidden = false;
+          return;
+        }
+        if (kcal > 10000) {
+          err.textContent = "カロリーは10000以下で入力してください。";
+          err.hidden = false;
+          return;
+        }
+        err.hidden = true;
+        if (formState && formState.mode === "edit") {
+          var target = entries.find(function (e) { return e.id === formState.id; });
+          if (target) {
+            target.date = date;
+            target.slot = formSlot;
+            target.name = name.slice(0, 200);
+            target.kcal = kcal;
+          }
+        } else {
+          entries.push({ id: nextId++, date: date, slot: formSlot, name: name.slice(0, 200), kcal: kcal });
+        }
+        lastDeleted = null;
+        save();
+        selectedDate = date;
+        viewMonth = monthOf(date);
+        closeForm();
+        render();
+      }
+
+      /* ============ 書き出し・取り込み ============ */
+      function exportJson() {
+        return JSON.stringify({
+          app: "karorikarenda-html",
+          version: 1,
+          exported_at: new Date().toISOString(),
+          entries: entries.map(function (e) {
+            return { date: e.date, slot: e.slot, name: e.name, kcal: e.kcal };
+          })
+        }, null, 2);
+      }
+
+      function importFromText(text, msgEl) {
+        var data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          msgEl.textContent = "データの形式が読み取れませんでした。書き出したデータをそのまま貼ってください。";
+          msgEl.className = "msg err";
+          return;
+        }
+        var list = Array.isArray(data) ? data : data.entries;
+        if (!Array.isArray(list)) {
+          msgEl.textContent = "記録のデータが見つかりませんでした。";
+          msgEl.className = "msg err";
+          return;
+        }
+        var added = 0;
+        list.forEach(function (raw) {
+          if (validEntry(raw)) {
+            entries.push({ id: nextId++, date: raw.date, slot: raw.slot, name: String(raw.name).slice(0, 200), kcal: Math.round(raw.kcal) });
+            added += 1;
+          }
+        });
+        if (added === 0) {
+          msgEl.textContent = "取り込める記録がありませんでした。";
+          msgEl.className = "msg err";
+          return;
+        }
+        save();
+        render();
+        msgEl.textContent = added + "件の記録を取り込みました。";
+        msgEl.className = "msg";
+      }
+
+      /* ============ イベント ============ */
+      $("quickAdd").addEventListener("click", function () {
+        openForm({ mode: "add", date: todayStr() });
+      });
+      $("addToDay").addEventListener("click", function () {
+        openForm({ mode: "add", date: selectedDate });
+      });
+      $("prevMonth").addEventListener("click", function () { goMonth(-1); });
+      $("nextMonth").addEventListener("click", function () { goMonth(1); });
+      $("thisMonth").addEventListener("click", function () {
+        viewMonth = monthOf(todayStr());
+        selectedDate = todayStr();
+        confirmingId = null;
+        render();
+      });
+      $("btnConvert").addEventListener("click", runConvert);
+      $("btnSave").addEventListener("click", submitForm);
+      $("btnCancel").addEventListener("click", closeForm);
+      $("overlay").addEventListener("click", function (ev) {
+        if (ev.target === $("overlay")) closeForm();
+      });
+      document.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape" && !$("overlay").hidden) closeForm();
+      });
+
+      $("exportFile").addEventListener("click", function () {
+        var blob = new Blob([exportJson()], { type: "application/json" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "karori-" + todayStr() + ".json";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+        $("exportMsg").textContent = "ファイルを書き出しました。";
+        $("exportMsg").className = "msg";
+      });
+      $("exportCopy").addEventListener("click", function () {
+        var text = exportJson();
+        var done = function () {
+          $("exportMsg").textContent = "データをコピーしました。取り込み先で貼り付けてください。";
+          $("exportMsg").className = "msg";
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+        } else {
+          fallbackCopy(text, done);
+        }
+      });
+      function fallbackCopy(text, done) {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e) { /* noop */ }
+        ta.remove();
+        done();
+      }
+      $("importFileBtn").addEventListener("click", function () { $("importFile").click(); });
+      $("importFile").addEventListener("change", function () {
+        var file = $("importFile").files && $("importFile").files[0];
+        $("importFile").value = "";
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function () { importFromText(String(reader.result || ""), $("importMsg")); };
+        reader.onerror = function () {
+          $("importMsg").textContent = "ファイルを読み込めませんでした。";
+          $("importMsg").className = "msg err";
+        };
+        reader.readAsText(file);
+      });
+      $("importTextBtn").addEventListener("click", function () {
+        var text = $("importText").value.trim();
+        if (!text) {
+          $("importMsg").textContent = "先にデータを貼り付けてください。";
+          $("importMsg").className = "msg err";
+          return;
+        }
+        importFromText(text, $("importMsg"));
+        if ($("importMsg").className === "msg") $("importText").value = "";
+      });
+
+      /* ============ 起動 ============ */
+      load();
+      render();
+    </script>
+  </body>
+</html>
